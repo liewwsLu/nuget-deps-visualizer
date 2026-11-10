@@ -1,11 +1,14 @@
 #include "app.h"
 
 #include <exception>
+#include <fstream>
 
 #include "config.h"
 #include "graph.h"
 #include "local_repo.h"
 #include "nuget.h"
+#include "render.h"
+#include "svg.h"
 
 namespace {
 
@@ -59,6 +62,19 @@ void printLoadOrder(const Graph& graph, std::ostream& out) {
     }
 }
 
+/// Сохранить описание графа на языке DOT и изображение SVG (этап 5).
+void saveVisualization(const Graph& graph, const std::string& output, std::ostream& out) {
+    std::string dotPath = output.substr(0, output.size() - std::string(".svg").size()) + ".dot";
+    std::ofstream file(dotPath, std::ios::binary);
+    if (!file || !(file << toDot(graph))) {
+        throw RenderError("cannot write " + dotPath);
+    }
+    file.close();
+    std::string renderer = saveSvg(graph, dotPath, output, findProgram("dot"));
+    out << "Graphviz description saved to " << dotPath << "\n";
+    out << "SVG image saved to " << output << " (" << renderer << ")\n";
+}
+
 }  // namespace
 
 int runApp(const std::vector<std::string>& args, Fetcher& fetcher, std::ostream& out, std::ostream& err) {
@@ -69,6 +85,12 @@ int runApp(const std::vector<std::string>& args, Fetcher& fetcher, std::ostream&
             printLoadOrder(graph, out);
         } else {
             printGraph(graph, out);
+        }
+        saveVisualization(graph, config.output, out);
+        if (config.asciiTree) {
+            for (const std::string& line : asciiTree(graph)) {
+                out << line << "\n";
+            }
         }
     } catch (const ConfigError& error) {
         err << "error: " << error.what() << "\n" << usage() << "\n";

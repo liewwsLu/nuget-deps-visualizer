@@ -19,20 +19,6 @@ struct RunResult {
     std::string err;
 };
 
-/// Запустить приложение с параметрами args; сеть подменяется объектом fetcher.
-inline RunResult runWith(const std::vector<std::string>& args, Fetcher& fetcher) {
-    std::ostringstream out;
-    std::ostringstream err;
-    int code = runApp(args, fetcher, out, err);
-    return {code, out.str(), err.str()};
-}
-
-/// Запустить приложение с пустым сервером (на любой запрос — 404).
-inline RunResult runWith(const std::vector<std::string>& args) {
-    FakeFetcher fetcher;
-    return runWith(args, fetcher);
-}
-
 /// Временная папка для файлов теста; удаляется вместе с объектом.
 struct TempDir {
     std::filesystem::path path;
@@ -57,6 +43,30 @@ struct TempDir {
         return file.string();
     }
 };
+
+/// Запустить приложение с параметрами args; сеть подменяется объектом fetcher.
+/// Если --output не задан, изображение сохраняется во временную папку.
+inline RunResult runWith(std::vector<std::string> args, Fetcher& fetcher) {
+    TempDir folder;
+    bool hasOutput = false;
+    for (const std::string& arg : args) {
+        hasOutput = hasOutput || arg.rfind("--output", 0) == 0;
+    }
+    if (!hasOutput) {
+        args.push_back("--output");
+        args.push_back((folder.path / "g.svg").string());
+    }
+    std::ostringstream out;
+    std::ostringstream err;
+    int code = runApp(args, fetcher, out, err);
+    return {code, out.str(), err.str()};
+}
+
+/// Запустить приложение с пустым сервером (на любой запрос — 404).
+inline RunResult runWith(const std::vector<std::string>& args) {
+    FakeFetcher fetcher;
+    return runWith(args, fetcher);
+}
 
 /// Путь к файлу из tests/data (тесты запускаются из корня проекта).
 inline std::string dataPath(const std::string& name) {
