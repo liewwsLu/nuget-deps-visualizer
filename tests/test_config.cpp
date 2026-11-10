@@ -53,9 +53,14 @@ TEST(config_format_key_value) {
     Config config = parseConfig({"--package", "Serilog", "--ascii-tree"});
     std::vector<std::string> expected = {
         "package=Serilog", "repository=" + DEFAULT_REPOSITORY, "test_mode=false",
-        "output=graph.svg", "ascii_tree=true",
+        "output=graph.svg", "ascii_tree=true", "load_order=false",
     };
     CHECK_EQ(formatConfig(config), expected);
+}
+
+TEST(config_load_order_flag) {
+    CHECK(!parseConfig({"--package", "Serilog"}).loadOrder);
+    CHECK(parseConfig({"--package", "Serilog", "--load-order"}).loadOrder);
 }
 
 TEST(config_error_missing_package) {
@@ -113,6 +118,7 @@ TEST(config_error_output_folder) {
 
 TEST(config_error_flag_with_value) {
     checkError({"--package", "Serilog", "--ascii-tree=yes"}, "does not take a value");
+    checkError({"--package", "Serilog", "--load-order=1"}, "does not take a value");
 }
 
 TEST(config_error_unknown_option) {

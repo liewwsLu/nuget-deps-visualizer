@@ -43,6 +43,33 @@ TEST(app_serilog_console) {
     CHECK_CONTAINS(result.out, "  Serilog.Sinks.Console 6.0.0 -> Serilog\n  Serilog 4.0.0 -> (none)\n");
 }
 
+TEST(app_load_order) {
+    RunResult result = runWith({"--package", "A", "--test-mode", "--load-order", "--repo", dataPath("simple.txt")});
+    CHECK_EQ(result.code, 0);
+    CHECK_EQ(result.out, std::string("Load order of A (dependencies first):\n"
+                                     "  1. D\n"
+                                     "  2. B\n"
+                                     "  3. C\n"
+                                     "  4. A\n"));
+}
+
+TEST(app_load_order_with_cycle) {
+    RunResult result = runWith({"--package", "A", "--test-mode", "--load-order", "--repo", dataPath("cycle.txt")});
+    CHECK_EQ(result.code, 0);
+    CHECK_CONTAINS(result.out, "  1. D\n  2. C\n  3. B\n  4. A\n");
+    CHECK_CONTAINS(result.out, "Note: cycle A -> B -> C -> A - its edge C -> A was ignored\n");
+}
+
+TEST(app_load_order_nuget_versions) {
+    FakeFetcher fetcher = serverFetcher({{"Root.Pkg", {{"1.0.0", {{"Dep.One", "2.0"}}}}},
+                                         {"Dep.One", {{"2.0.0", {}}, {"2.1.0", {}}}}});
+    RunResult result = runWith({"--package", "Root.Pkg", "--load-order"}, fetcher);
+    CHECK_EQ(result.code, 0);
+    CHECK_EQ(result.out, std::string("Load order of Root.Pkg 1.0.0 (dependencies first):\n"
+                                     "  1. Dep.One 2.0.0\n"
+                                     "  2. Root.Pkg 1.0.0\n"));
+}
+
 TEST(app_test_mode_unknown_package) {
     RunResult result = runWith({"--package", "Z", "--test-mode", "--repo", dataPath("simple.txt")});
     CHECK_EQ(result.code, 1);

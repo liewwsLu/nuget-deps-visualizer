@@ -142,6 +142,8 @@ bool applyFlag(Config& config, const std::string& name) {
         config.testMode = true;
     } else if (name == "--ascii-tree") {
         config.asciiTree = true;
+    } else if (name == "--load-order") {
+        config.loadOrder = true;
     } else {
         return false;
     }
@@ -214,9 +216,11 @@ std::vector<std::string> formatConfig(const Config& config) {
         "test_mode=" + flag(config.testMode),
         "output=" + config.output,
         "ascii_tree=" + flag(config.asciiTree),
+        "load_order=" + flag(config.loadOrder),
     };
 }
 
 std::string usage() {
-    return "usage: depviz --package NAME [--repo URL_OR_PATH] [--test-mode] [--output FILE.svg] [--ascii-tree]";
+    return "usage: depviz --package NAME [--repo URL_OR_PATH] [--test-mode] [--output FILE.svg] [--ascii-tree] "
+           "[--load-order]";
 }

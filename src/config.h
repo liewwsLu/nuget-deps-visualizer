@@ -21,6 +21,7 @@ struct Config {
     bool testMode = false;                     ///< режим тестового репозитория
     std::string output = DEFAULT_OUTPUT;       ///< имя файла с изображением графа
     bool asciiTree = false;                    ///< вывод ASCII-дерева
+    bool loadOrder = false;                    ///< вывод порядка загрузки зависимостей
 };
 
 /// Разобрать и проверить параметры командной строки (без имени программы).

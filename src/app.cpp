@@ -46,12 +46,30 @@ void printGraph(const Graph& graph, std::ostream& out) {
     }
 }
 
+/// Вывести порядок загрузки зависимостей (этап 4).
+void printLoadOrder(const Graph& graph, std::ostream& out) {
+    out << "Load order of " << graph.labels.at(graph.root) << " (dependencies first):\n";
+    std::vector<std::string> order = loadOrder(graph);
+    for (std::size_t i = 0; i < order.size(); ++i) {
+        out << "  " << i + 1 << ". " << graph.labels.at(order[i]) << "\n";
+    }
+    for (const std::vector<std::string>& cycle : graph.cycles) {
+        out << "Note: cycle " << join(cycle, " -> ") << " - its edge " << cycle[cycle.size() - 2] << " -> "
+            << cycle.back() << " was ignored\n";
+    }
+}
+
 }  // namespace
 
 int runApp(const std::vector<std::string>& args, Fetcher& fetcher, std::ostream& out, std::ostream& err) {
     try {
         Config config = parseConfig(args);
-        printGraph(makeGraph(config, fetcher), out);
+        Graph graph = makeGraph(config, fetcher);
+        if (config.loadOrder) {
+            printLoadOrder(graph, out);
+        } else {
+            printGraph(graph, out);
+        }
     } catch (const ConfigError& error) {
         err << "error: " << error.what() << "\n" << usage() << "\n";
         return 1;

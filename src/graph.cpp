@@ -1,6 +1,7 @@
 #include "graph.h"
 
 #include <algorithm>
+#include <set>
 #include <utility>
 
 namespace {
@@ -61,4 +62,24 @@ Graph buildGraph(const std::string& root, DependencySource& source) {
         graph.labels[name] = source.label(name);
     }
     return graph;
+}
+
+std::vector<std::string> loadOrder(const Graph& graph) {
+    std::vector<std::string> order;
+    std::set<std::string> seen = {graph.root};
+    std::vector<Frame> stack = {{graph.root, 0}};
+    while (!stack.empty()) {
+        Frame& top = stack.back();
+        const std::vector<std::string>& children = graph.children(top.node);
+        if (top.next == children.size()) {
+            order.push_back(top.node);
+            stack.pop_back();
+            continue;
+        }
+        const std::string& child = children[top.next++];
+        if (seen.insert(child).second) {
+            stack.push_back({child, 0});
+        }
+    }
+    return order;
 }
