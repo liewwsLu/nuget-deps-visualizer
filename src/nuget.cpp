@@ -133,3 +133,49 @@ DirectDependencies NuGetRepository::directDependencies(const std::string& packag
     result.dependencies = group.dependencies;
     return result;
 }
+
+NuGetSource::NuGetSource(NuGetRepository& repository, const std::string& root) : repository_(repository) {
+    names_[toLower(root)] = root;
+}
+
+void NuGetSource::useVersion(const std::string& name, const std::string& version) {
+    versions_[toLower(name)] = version;
+}
+
+std::string NuGetSource::resolve(const std::string& name) {
+    std::string key = toLower(name);
+    auto known = versions_.find(key);
+    if (known != versions_.end()) {
+        return known->second;
+    }
+    std::vector<std::string> available = repository_.versions(name);
+    auto range = ranges_.find(key);
+    std::string version;
+    if (range == ranges_.end()) {
+        version = available.empty() ? "" : latestStable(available);
+    } else {
+        version = lowestMatching(range->second, available);
+    }
+    if (version.empty()) {
+        std::string wanted = range == ranges_.end() || range->second.empty() ? "latest" : range->second;
+        throw RepositoryError("no suitable version of " + name + " for " + wanted);
+    }
+    versions_[key] = version;
+    return version;
+}
+
+std::vector<std::string> NuGetSource::dependencies(const std::string& name) {
+    std::string version = resolve(name);
+    std::vector<std::string> result;
+    for (const Dependency& dependency : repository_.directDependencies(name, version).dependencies) {
+        std::string key = toLower(dependency.packageId);
+        ranges_.emplace(key, dependency.versionRange);
+        names_.emplace(key, dependency.packageId);
+        result.push_back(names_[key]);
+    }
+    return result;
+}
+
+std::string NuGetSource::label(const std::string& name) {
+    return name + " " + versions_[toLower(name)];
+}

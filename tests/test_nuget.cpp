@@ -2,6 +2,7 @@
 
 #include "fake_nuget.h"
 #include "http.h"
+#include "graph.h"
 #include "nuget.h"
 #include "test.h"
 
@@ -107,4 +108,54 @@ TEST(http_parse_curl_output) {
     CHECK_EQ(parseCurlOutput("line1\nline2\n404").body, std::string("line1\nline2"));
     CHECK_EQ(parseCurlOutput("\n000").status, 0);
     CHECK_EQ(parseCurlOutput("").status, 0);
+}
+
+// Граф по данным репозитория NuGet.
+
+const FakeServer SERVER = {
+    {"App.Core", {{"1.0.0", {{"Lib.A", "1.0.0"}, {"Lib.B", "[2.0.0, 3.0.0)"}}}, {"2.0.0", {{"Lib.A", "1.5.0"}}}}},
+    {"Lib.A", {{"1.0.0", {{"Lib.C", "1.0.0"}}}, {"1.5.0", {}}, {"2.0.0-beta", {}}}},
+    {"Lib.B", {{"1.0.0", {}}, {"2.0.0", {{"lib.c", "1.0.0"}}}, {"2.5.0", {}}}},
+    {"Lib.C", {{"1.0.0", {}}, {"1.1.0", {}}}},
+};
+
+TEST(source_root_latest_dependency_lowest) {
+    FakeFetcher fetcher = serverFetcher(SERVER);
+    NuGetRepository repository(INDEX_URL, fetcher);
+    NuGetSource source(repository, "App.Core");
+    Graph graph = buildGraph("App.Core", source);
+    CHECK_EQ(graph.labels["App.Core"], std::string("App.Core 2.0.0"));
+    CHECK_EQ(graph.labels["Lib.A"], std::string("Lib.A 1.5.0"));
+}
+
+TEST(source_transitive_and_ranges) {
+    FakeFetcher fetcher = serverFetcher(SERVER);
+    NuGetRepository repository(INDEX_URL, fetcher);
+    NuGetSource source(repository, "App.Core");
+    source.useVersion("App.Core", "1.0.0");
+    Graph graph = buildGraph("App.Core", source);
+    CHECK_EQ(graph.labels["Lib.B"], std::string("Lib.B 2.0.0"));
+    CHECK_EQ(graph.children("Lib.A"), std::vector<std::string>{"Lib.C"});
+}
+
+TEST(source_names_ignore_case) {
+    FakeFetcher fetcher = serverFetcher(SERVER);
+    NuGetRepository repository(INDEX_URL, fetcher);
+    NuGetSource source(repository, "App.Core");
+    source.useVersion("App.Core", "1.0.0");
+    Graph graph = buildGraph("App.Core", source);
+    CHECK_EQ(graph.children("Lib.B"), std::vector<std::string>{"Lib.C"});
+    CHECK_EQ(graph.nodes.size(), std::size_t(4));
+}
+
+TEST(source_no_suitable_version) {
+    FakeFetcher fetcher = serverFetcher({{"X", {{"1.0.0", {{"Y", "[9.0]"}}}}}, {"Y", {{"1.0.0", {}}}}});
+    NuGetRepository repository(INDEX_URL, fetcher);
+    NuGetSource source(repository, "X");
+    try {
+        buildGraph("X", source);
+        CHECK(false);
+    } catch (const RepositoryError& error) {
+        CHECK_CONTAINS(error.what(), "no suitable version of Y for [9.0]");
+    }
 }

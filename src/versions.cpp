@@ -93,3 +93,62 @@ std::string describeRange(const std::string& range) {
     }
     return ">= " + text;
 }
+
+bool VersionRange::contains(const std::string& version) const {
+    VersionKey key = versionKey(version);
+    if (!low.empty()) {
+        VersionKey lowKey = versionKey(low);
+        if (lowInclusive ? key < lowKey : key <= lowKey) {
+            return false;
+        }
+    }
+    if (!high.empty()) {
+        VersionKey highKey = versionKey(high);
+        if (highInclusive ? key > highKey : key >= highKey) {
+            return false;
+        }
+    }
+    return true;
+}
+
+VersionRange parseRange(const std::string& text) {
+    std::string range = clean(text);
+    VersionRange result;
+    if (range.empty()) {
+        return result;
+    }
+    if (range[0] != '[' && range[0] != '(') {
+        result.low = range;
+        return result;
+    }
+    char last = range.back();
+    if (range.size() < 2 || (last != ']' && last != ')')) {
+        throw VersionError("invalid version range: " + text);
+    }
+    std::string inner = range.substr(1, range.size() - 2);
+    std::size_t comma = inner.find(',');
+    if (comma == std::string::npos) {
+        result.low = result.high = inner;
+        return result;
+    }
+    result.low = inner.substr(0, comma);
+    result.high = inner.substr(comma + 1);
+    result.lowInclusive = range[0] == '[';
+    result.highInclusive = last == ']';
+    return result;
+}
+
+std::string lowestMatching(const std::string& rangeText, const std::vector<std::string>& versions) {
+    VersionRange range = parseRange(rangeText);
+    bool allowPrerelease = !range.low.empty() && isPrerelease(range.low);
+    std::string best;
+    for (const std::string& version : versions) {
+        if (!range.contains(version) || (isPrerelease(version) && !allowPrerelease)) {
+            continue;
+        }
+        if (best.empty() || versionKey(version) < versionKey(best)) {
+            best = version;
+        }
+    }
+    return best;
+}

@@ -48,3 +48,53 @@ TEST(versions_describe_range) {
     CHECK_EQ(describeRange("[1.0.0, 2.0.0)"), std::string("[1.0.0, 2.0.0)"));
     CHECK_EQ(describeRange(""), std::string("any version"));
 }
+
+// Диапазоны версий и выбор наименьшей подходящей версии.
+
+const std::vector<std::string> VERSIONS = {"1.0.0", "1.5.0", "2.0.0", "2.1.0-beta", "3.0.0"};
+
+TEST(range_minimum_only) {
+    CHECK_EQ(lowestMatching("1.5", VERSIONS), std::string("1.5.0"));
+}
+
+TEST(range_minimum_not_published) {
+    CHECK_EQ(lowestMatching("1.2", VERSIONS), std::string("1.5.0"));
+}
+
+TEST(range_exclusive_bounds) {
+    CHECK_EQ(lowestMatching("(1.0.0, 3.0.0)", VERSIONS), std::string("1.5.0"));
+    CHECK_EQ(lowestMatching("(1.0.0,)", VERSIONS), std::string("1.5.0"));
+}
+
+TEST(range_inclusive_upper_bound) {
+    CHECK(parseRange("[1.0, 2.0]").contains("2.0.0"));
+    CHECK(!parseRange("[1.0, 2.0)").contains("2.0.0"));
+}
+
+TEST(range_exact) {
+    CHECK_EQ(lowestMatching("[2.0.0]", VERSIONS), std::string("2.0.0"));
+}
+
+TEST(range_upper_bound_only) {
+    CHECK_EQ(lowestMatching("(, 2.0.0]", VERSIONS), std::string("1.0.0"));
+}
+
+TEST(range_any_version) {
+    CHECK_EQ(lowestMatching("", VERSIONS), std::string("1.0.0"));
+}
+
+TEST(range_skips_prerelease) {
+    CHECK_EQ(lowestMatching("2.0.1", VERSIONS), std::string("3.0.0"));
+}
+
+TEST(range_prerelease_lower_bound) {
+    CHECK_EQ(lowestMatching("2.1.0-alpha", VERSIONS), std::string("2.1.0-beta"));
+}
+
+TEST(range_no_match) {
+    CHECK_EQ(lowestMatching("[5.0, 6.0)", VERSIONS), std::string(""));
+}
+
+TEST(range_invalid) {
+    CHECK_THROWS(parseRange("[1.0, 2.0"), VersionError);
+}

@@ -2,10 +2,12 @@
 
 // Подмена сети для тестов: ответы NuGet берутся из файлов tests/data/nuget.
 
+#include <cctype>
 #include <fstream>
 #include <map>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "http.h"
@@ -53,5 +55,45 @@ inline FakeFetcher serilogConsoleFetcher() {
     fetcher.add(INDEX_URL, readNugetData("service_index.json"));
     fetcher.add(BASE + name + "/index.json", readNugetData(name + ".index.json"));
     fetcher.add(BASE + name + "/6.0.0/" + name + ".nuspec", readNugetData(name + ".6.0.0.nuspec"));
+    return fetcher;
+}
+
+/// Пакеты тестового сервера: имя -> версия -> список зависимостей (имя, диапазон).
+using FakeServer = std::map<std::string, std::map<std::string, std::vector<std::pair<std::string, std::string>>>>;
+
+inline std::string toLowerCase(std::string text) {
+    for (char& c : text) {
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    return text;
+}
+
+/// Собрать текст .nuspec с одной группой .NETStandard2.0.
+inline std::string makeNuspec(const std::string& id, const std::string& version,
+                              const std::vector<std::pair<std::string, std::string>>& dependencies) {
+    std::string items;
+    for (const auto& [name, range] : dependencies) {
+        items += "<dependency id=\"" + name + "\" version=\"" + range + "\" />";
+    }
+    return "<package xmlns=\"http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd\"><metadata><id>" + id +
+           "</id><version>" + version + "</version><dependencies><group targetFramework=\".NETStandard2.0\">" +
+           items + "</group></dependencies></metadata></package>";
+}
+
+/// Сервер с заданными пакетами: индекс сервиса, списки версий и .nuspec каждой версии.
+inline FakeFetcher serverFetcher(const FakeServer& packages) {
+    FakeFetcher fetcher;
+    fetcher.add(INDEX_URL, readNugetData("service_index.json"));
+    for (const auto& [name, versions] : packages) {
+        std::string key = toLowerCase(name);
+        std::string list;
+        for (const auto& entry : versions) {
+            list += (list.empty() ? "\"" : ", \"") + entry.first + "\"";
+        }
+        fetcher.add(BASE + key + "/index.json", "{\"versions\": [" + list + "]}");
+        for (const auto& [version, dependencies] : versions) {
+            fetcher.add(BASE + key + "/" + version + "/" + key + ".nuspec", makeNuspec(name, version, dependencies));
+        }
+    }
     return fetcher;
 }

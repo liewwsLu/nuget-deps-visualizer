@@ -1,8 +1,10 @@
 #pragma once
 
+#include <map>
 #include <string>
 #include <vector>
 
+#include "graph.h"
 #include "http.h"
 #include "nuspec.h"
 
@@ -40,4 +42,33 @@ private:
 
     /// Скачать текст по URL. Если сервер ответил 404 — found = false и пустая строка.
     std::string fetchText(const std::string& url, bool& found);
+};
+
+/// Источник данных для buildGraph на основе репозитория NuGet.
+///
+/// Версия корневого пакета — последняя стабильная. Версия зависимости —
+/// наименьшая, подходящая под диапазон из .nuspec (правило NuGet «lowest
+/// applicable version»). Если пакет встречается несколько раз, используется
+/// диапазон, встреченный первым. Имена пакетов NuGet не зависят от регистра,
+/// поэтому сравниваются маленькими буквами, а выводятся так, как встретились первыми.
+class NuGetSource : public DependencySource {
+public:
+    NuGetSource(NuGetRepository& repository, const std::string& root);
+
+    std::vector<std::string> dependencies(const std::string& name) override;
+
+    /// Подпись пакета: имя и выбранная версия.
+    std::string label(const std::string& name) override;
+
+    /// Задать версию пакета заранее, без выбора по правилам (используется в тестах).
+    void useVersion(const std::string& name, const std::string& version);
+
+private:
+    NuGetRepository& repository_;
+    std::map<std::string, std::string> names_;     ///< имя маленькими буквами -> имя для вывода
+    std::map<std::string, std::string> ranges_;    ///< имя маленькими буквами -> диапазон версий
+    std::map<std::string, std::string> versions_;  ///< имя маленькими буквами -> выбранная версия
+
+    /// Определить версию пакета.
+    std::string resolve(const std::string& name);
 };
