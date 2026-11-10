@@ -126,17 +126,3 @@ TEST(config_error_repeated_option) {
 TEST(config_error_unexpected_argument) {
     checkError({"Serilog"}, "unexpected argument");
 }
-
-TEST(app_prints_config) {
-    RunResult result = runWith({"--package", "Serilog"});
-    CHECK_EQ(result.code, 0);
-    CHECK_CONTAINS(result.out, "package=Serilog\n");
-    CHECK_CONTAINS(result.out, "ascii_tree=false\n");
-}
-
-TEST(app_error_exit_code) {
-    RunResult result = runWith({"--package", "Serilog", "--output", "g.png"});
-    CHECK_EQ(result.code, 1);
-    CHECK_CONTAINS(result.err, "error: ");
-    CHECK_CONTAINS(result.err, "usage: ");
-}

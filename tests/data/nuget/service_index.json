@@ -1,0 +1,20 @@
+{
+  "version": "3.0.0",
+  "resources": [
+    {
+      "@id": "https://azuresearch-usnc.nuget.org/query",
+      "@type": "SearchQueryService",
+      "comment": "Query endpoint of NuGet Search service (primary)"
+    },
+    {
+      "@id": "https://api.nuget.org/v3-flatcontainer/",
+      "@type": "PackageBaseAddress/3.0.0",
+      "comment": "Base URL of where NuGet packages are stored"
+    },
+    {
+      "@id": "https://api.nuget.org/v3/registration5-semver1/",
+      "@type": "RegistrationsBaseUrl",
+      "comment": "Base URL of Azure storage where NuGet package registration info is stored"
+    }
+  ]
+}

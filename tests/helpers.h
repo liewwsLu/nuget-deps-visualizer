@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "app.h"
+#include "fake_nuget.h"
 
 /// Результат запуска приложения: код завершения, вывод и ошибки.
 struct RunResult {
@@ -18,12 +19,18 @@ struct RunResult {
     std::string err;
 };
 
-/// Запустить приложение с параметрами args.
-inline RunResult runWith(const std::vector<std::string>& args) {
+/// Запустить приложение с параметрами args; сеть подменяется объектом fetcher.
+inline RunResult runWith(const std::vector<std::string>& args, Fetcher& fetcher) {
     std::ostringstream out;
     std::ostringstream err;
-    int code = runApp(args, out, err);
+    int code = runApp(args, fetcher, out, err);
     return {code, out.str(), err.str()};
+}
+
+/// Запустить приложение с пустым сервером (на любой запрос — 404).
+inline RunResult runWith(const std::vector<std::string>& args) {
+    FakeFetcher fetcher;
+    return runWith(args, fetcher);
 }
 
 /// Временная папка для файлов теста; удаляется вместе с объектом.
